@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word Wheel</title>
+<meta name="description" content="A minimal dark glossary. Step through words and definitions on a wheel.">
+<meta property="og:title" content="Word Wheel">
+<meta property="og:description" content="A minimal dark glossary. Step through words and definitions on a wheel.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0a'/%3E%3Crect x='12' y='6' width='8' height='20' fill='%23f5f5f5'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --fg: #f5f5f5;
+    --muted: #8c8c8c;
+    --line: #2a2a2a;
+    --step: 8px;
+    --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *, *::before, *::after { box-sizing: inherit; margin: 0; border-radius: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  main {
+    height: 100%;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: calc(var(--step) * 3);
+    padding: calc(var(--step) * 3);
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  button {
+    width: calc(var(--step) * 6);
+    height: calc(var(--step) * 6);
+    display: grid;
+    place-items: center;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--fg);
+    cursor: pointer;
+    transition: border-color 160ms ease, opacity 160ms ease;
+  }
+  button:hover:not(:disabled) { border-color: var(--fg); }
+  button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  button:disabled { opacity: 0.25; cursor: default; }
+  svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+
+  .stage { text-align: center; }
+
+  .wheel {
+    position: relative;
+    height: calc(var(--step) * 14);
+    perspective: 720px;
+    overflow: hidden;
+    touch-action: pan-y;
+  }
+  .word {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    white-space: nowrap;
+    font-size: clamp(40px, 9vw, 88px);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    transition: transform 480ms var(--ease), opacity 480ms var(--ease);
+    will-change: transform, opacity;
+  }
+
+  .entry {
+    margin-top: calc(var(--step) * 5);
+    min-height: calc(var(--step) * 12);
+    transition: opacity 160ms ease;
+  }
+  .entry.out { opacity: 0; }
+  .pos {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 24px;
+  }
+  .def {
+    margin: var(--step) auto 0;
+    max-width: 48ch;
+    font-size: 20px;
+    line-height: 32px;
+  }
+
+  @media (max-width: 560px) {
+    main { column-gap: calc(var(--step) * 2); padding: calc(var(--step) * 2); }
+    button { width: calc(var(--step) * 5); height: calc(var(--step) * 5); }
+    .def { font-size: 18px; line-height: 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .word, .entry, button { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <button id="prev" type="button" aria-label="Previous word">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+
+  <section class="stage">
+    <div class="wheel" id="wheel"></div>
+    <div class="entry" id="entry" aria-live="polite">
+      <p class="pos" id="pos"></p>
+      <p class="def" id="def"></p>
+    </div>
+  </section>
+
+  <button id="next" type="button" aria-label="Next word">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+  </button>
+</main>
+
+<script>
+
+  const LIST = `
+    indefatigable | adj. | Persisting tirelessly without becoming tired.
+    parlance | n. | A particular way of speaking or using words.
+    clinomania | n. | An excessive desire to stay in bed.
+    eccedentesiast | n. | A person who hides their true feelings behind a smile.
+    pizzazz | n. | An attractive combination of energy, excitement, and style.
+    omission | n. | Something that has been left out or excluded.
+    maladjustive | adj. | Relating to behavior that makes it difficult to adapt to situations.
+    camaraderie | n. | Mutual trust, friendship, and goodwill among people.
+    ephemeral | adj. | Lasting for a very short time.
+    ubiquitous | adj. | Present or found everywhere at once.
+    magiriocophobia | n. | A fear of cooking.
+    arachnophobia | n. | An intense fear of spiders.
+    hemiola | n. | A musical rhythm in which two groups of three beats are replaced by three groups of two beats, or vice versa.
+    condescending | adj. | Showing a feeling of superiority toward others.
+    accismus | n. | A rhetorical device in which someone pretends to refuse something they actually desire.
+    megalophobia | n. | An intense fear of large objects.
+  `;
+
+  const WORDS = LIST.trim().split("\n").map(line => {
+    const [word, pos, ...rest] = line.split("|").map(s => s.trim());
+    return { word, pos, def: rest.join("|").trim() };
+  });
+
+  const wheel = document.getElementById("wheel");
+  const entry = document.getElementById("entry");
+  const posEl = document.getElementById("pos");
+  const defEl = document.getElementById("def");
+  const prev = document.getElementById("prev");
+  const next = document.getElementById("next");
+  const KEY = "word-wheel-index";
+
+  let index = 0;
+  try {
+    const saved = parseInt(localStorage.getItem(KEY), 10);
+    if (saved >= 0 && saved < WORDS.length) index = saved;
+  } catch (e) {}
+
+  const items = WORDS.map(w => {
+    const el = document.createElement("div");
+    el.className = "word";
+    el.textContent = w.word;
+    el.setAttribute("aria-hidden", "true");
+    wheel.appendChild(el);
+    return el;
+  });
+
+  function layout() {
+    const step = Math.min(wheel.clientWidth / 3, 320);
+    items.forEach((el, i) => {
+      const o = i - index;
+      el.style.transform =
+        "translate(-50%, -50%) translateX(" + o * step + "px) rotateY(" + (-o * 50) + "deg)";
+      el.style.opacity = o === 0 ? 1 : 0;
+    });
+  }
+
+  let timer;
+  function show(animate) {
+    const w = WORDS[index];
+    const apply = () => {
+      posEl.textContent = w.pos;
+      defEl.textContent = w.def;
+      entry.classList.remove("out");
+    };
+    clearTimeout(timer);
+    if (animate) { entry.classList.add("out"); timer = setTimeout(apply, 160); }
+    else apply();
+    prev.disabled = index === 0;
+    next.disabled = index === WORDS.length - 1;
+    try { localStorage.setItem(KEY, index); } catch (e) {}
+    layout();
+  }
+
+  function go(d) {
+    const n = index + d;
+    if (n < 0 || n >= WORDS.length) return;
+    index = n;
+    show(true);
+  }
+
+  prev.addEventListener("click", () => go(-1));
+  next.addEventListener("click", () => go(1));
+  document.addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft") go(-1);
+    if (e.key === "ArrowRight") go(1);
+  });
+
+  let startX = null;
+  wheel.addEventListener("touchstart", e => { startX = e.touches[0].clientX; }, { passive: true });
+  wheel.addEventListener("touchend", e => {
+    if (startX === null) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+    startX = null;
+  });
+
+  window.addEventListener("resize", layout);
+  show(false);
+</script>
+</body>
+</html>
